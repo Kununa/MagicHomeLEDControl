@@ -17,7 +17,6 @@ namespace MagicHomeLEDControl
         private byte blue;
         private byte ww;
         private bool isOn;
-        private string state_str;
 
         public MagicHomeLED(string ipaddr, int port = 5577)
         {
@@ -28,7 +27,6 @@ namespace MagicHomeLEDControl
             green = 0;
             blue = 0;
             ww = 0;
-            state_str = "";
         }
 
         private bool send(byte[] input)
@@ -109,55 +107,32 @@ namespace MagicHomeLEDControl
 
         public void getState()
         {
-            string power_str = "Unknown power state";
-            string mode_str = "";
             byte[] ans = receive(new byte[] { 0x81, 0x8a, 0x8b });
             if (ans[0] != 0x81)
                 return;
             if (ans[2] == 0x23)
-            {
                 isOn = true;
-                power_str = "ON ";
-            }
             else if (ans[2] == 0x24)
-            {
                 isOn = false;
-                power_str = "OFF";
-            }
 
-            byte pattern = ans[3];
-            byte ww_level = ans[9];
-            string mode = Utils.determineMode(ww_level, pattern);
             byte delay = ans[5];
 
-            int speed = Utils.delayToSpeed(delay);
 
-
-            if (mode == "color")
+            if (new byte[] { 0x61, 0x62 }.Contains(ans[3]) && ans[9] == 0)
             {
                 red = ans[6];
                 green = ans[7];
                 blue = ans[8];
-                string color_str = Utils.color_tuple_to_string(red, green, blue);
-                mode_str = "Color: " + color_str;
+                ww = ans[9];
             }
-            else if (mode == "ww")
-                mode_str = "Warm White: {}" + Utils.byteToPercent(ww_level) + "%";
-            else if (mode == "preset")
+            else if (PresetPattern.valid(ans[3]))
             {
-                string pat = PresetPattern.valtostr(pattern);
-                mode_str = "Pattern: " + pat + " (Speed " + speed + "%)";
+                string pat = PresetPattern.valtostr(ans[3]);
             }
-            else if (mode == "custom")
-                mode_str = "Custom pattern (Speed " + speed + "%)";
-
-            else
-                mode_str = String.Format("Unknown mode 0x{0:x}", pattern);
-
-            if (pattern == 0x62)
-                mode_str += " (tmp)";
-
-            state_str = power_str + " [" + mode_str + "]";
+            else if (ans[3] == 0x60)
+            {
+                //custom pattern
+            }
         }
 
 
