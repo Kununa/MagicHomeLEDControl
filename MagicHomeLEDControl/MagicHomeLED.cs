@@ -10,6 +10,12 @@ namespace MagicHomeLEDControl
     public class MagicHomeLED
     {
 
+        public enum Type
+        {
+            LD382,
+            LD382v2
+        }
+
         private string ipaddr;
         private int port;
         private byte red;
@@ -17,8 +23,9 @@ namespace MagicHomeLEDControl
         private byte blue;
         private byte ww;
         private bool isOn;
+        public Type type;
 
-        public MagicHomeLED(string ipaddr, int port = 5577)
+        public MagicHomeLED(string ipaddr, Type type, int port = 5577)
         {
             this.ipaddr = ipaddr;
             this.port = port;
@@ -27,14 +34,14 @@ namespace MagicHomeLEDControl
             green = 0;
             blue = 0;
             ww = 0;
+            this.type = type;
         }
 
         private bool send(byte[] input)
         {
-            byte sum = 0;
-            foreach (byte b in input)
-                sum = (byte)(sum + b);
-            byte[] data = input.Concat(new byte[] { sum }).ToArray();
+            if (input == null)
+                return false;
+            byte[] data = Utils.addCheckSum(input);
 
             TcpClient client = new TcpClient(ipaddr, port);
             NetworkStream stream = client.GetStream();
@@ -47,10 +54,9 @@ namespace MagicHomeLEDControl
 
         private byte[] receive(byte[] input)
         {
-            byte sum = 0;
-            foreach (byte b in input)
-                sum = (byte)(sum + b);
-            byte[] data = input.Concat(new byte[] { sum }).ToArray();
+            if (input == null)
+                return null;
+            byte[] data = Utils.addCheckSum(input);
 
             TcpClient client = new TcpClient(ipaddr, port);
             NetworkStream stream = client.GetStream();
@@ -65,7 +71,9 @@ namespace MagicHomeLEDControl
 
         public void setRGB(byte r, byte g, byte b)
         {
-            byte[] data = { 0x31, r, g, b, 0x00, 0x00, 0x0f };
+            byte[] data = null;
+            if (type == Type.LD382v2)
+                data = new byte[] { 0x31, r, g, b, 0x00, 0x00, 0x0f };
             if (send(data))
             {
                 red = r;
@@ -79,7 +87,9 @@ namespace MagicHomeLEDControl
 
         public void setWW(byte ww)
         {
-            byte[] data = { 0x31, 0x00, 0x00, 0x00, ww, 0x00, 0x0f };
+            byte[] data = null;
+            if (type == Type.LD382v2)
+                data = new byte[] { 0x31, 0x00, 0x00, 0x00, ww, 0x00, 0x0f };
             if (send(data))
             {
                 this.ww = ww;
@@ -93,22 +103,29 @@ namespace MagicHomeLEDControl
 
         public void setOn()
         {
-            byte[] data = { 0x71, 0x23, 0x0f };
+            byte[] data = null;
+            if (type == Type.LD382v2)
+                data = new byte[] { 0x71, 0x23, 0x0f };
             if (send(data))
                 isOn = true;
         }
 
         public void setOff()
         {
-            byte[] data = { 0x71, 0x24, 0x0f };
+            byte[] data = null;
+            if (type == Type.LD382v2)
+                data = new byte[] { 0x71, 0x24, 0x0f };
             if (send(data))
                 isOn = false;
         }
 
         public void getState()
         {
-            byte[] ans = receive(new byte[] { 0x81, 0x8a, 0x8b });
-            if (ans[0] != 0x81)
+            byte[] data = null;
+            if (type == Type.LD382v2)
+                data = new byte[] { 0x81, 0x8a, 0x8b };
+            byte[] ans = receive(data);
+            if (ans == null || ans[0] != 0x81)
                 return;
             if (ans[2] == 0x23)
                 isOn = true;

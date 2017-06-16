@@ -10,22 +10,13 @@ namespace MagicHomeLEDControl
     class Utils
     {
 
-        private const byte max_delay = 0x1f;
-
-        public static int delayToSpeed(byte delay)
+        public static byte[] addCheckSum(byte[] input)
         {
-            // speed is 0-100, delay is 1-31
-            // 1st translate delay to 0-30
-            delay = (byte)(delay - 1);
-            if (delay > max_delay - 1)
-                delay = max_delay - 1;
-
-            if (delay < 0)
-                delay = 0;
-
-            int inv_speed = (int)((delay * 100) / (max_delay - 1));
-            int speed = 100 - inv_speed;
-            return speed;
+            byte sum = 0;
+            foreach (byte b in input)
+                sum = (byte)(sum + b);
+            byte[] output = input.Concat(new byte[] { sum }).ToArray();
+            return output;
         }
     }
 }
