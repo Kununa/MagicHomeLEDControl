@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Net.Sockets;
+using System.Drawing;
 
 namespace MagicHomeLEDControl
 {
@@ -12,6 +13,9 @@ namespace MagicHomeLEDControl
 
         public enum Type
         {
+            LW12,
+            LD316,
+            LD316A,
             LD382,
             LD382v2
         }
@@ -35,6 +39,7 @@ namespace MagicHomeLEDControl
             blue = 0;
             ww = 0;
             this.type = type;
+            getState();
         }
 
         private bool send(byte[] input)
@@ -58,15 +63,24 @@ namespace MagicHomeLEDControl
                 return null;
             byte[] data = Utils.addCheckSum(input);
 
-            TcpClient client = new TcpClient(ipaddr, port);
-            NetworkStream stream = client.GetStream();
-            stream.Write(data, 0, data.Length);
-            data = new byte[14];
-            stream.Read(data, 0, 14);
+            using (TcpClient client = new TcpClient(ipaddr, port))
+            {
+                using (NetworkStream stream = client.GetStream())
+                {
+                    stream.Write(data, 0, data.Length);
+                    data = new byte[14];
+                    System.Threading.Thread.Sleep(1000);
+                    client.Client.ReceiveTimeout = 1000;
+                    stream.Read(data, 0, data.Length);
 
-            stream.Close();
-            client.Close();
+                }
+            }
             return data;
+        }
+
+        public void setRGB(Color c)
+        {
+            setRGB(c.R, c.G, c.B);
         }
 
         public void setRGB(byte r, byte g, byte b)
@@ -101,6 +115,11 @@ namespace MagicHomeLEDControl
                 setOn();
         }
 
+        public byte getWW()
+        {
+            return ww;
+        }
+
         public void setOn()
         {
             byte[] data = null;
@@ -131,6 +150,10 @@ namespace MagicHomeLEDControl
                 isOn = true;
             else if (ans[2] == 0x24)
                 isOn = false;
+            red = ans[6];
+            green = ans[7];
+            blue = ans[8];
+            ww = ans[9];
 
             byte delay = ans[5];
 
@@ -152,6 +175,10 @@ namespace MagicHomeLEDControl
             }
         }
 
+        public bool IsOn()
+        {
+            return isOn;
+        }
 
     }
 }
