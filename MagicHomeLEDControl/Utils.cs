@@ -26,5 +26,18 @@ namespace MagicHomeLEDControl
             delay++;
             return (byte)delay;
         }
+
+        public static byte byteToPercent(byte b)
+        {
+            return (byte)(b / 255 * 100);
+        }
+
+        public static byte percentToByte(byte percent)
+        {
+            if (percent > 100)
+                percent = 100;
+
+            return (byte)(percent / 100 * 255);
+        }
     }
 }

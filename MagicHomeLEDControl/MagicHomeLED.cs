@@ -1,4 +1,6 @@
-﻿using System.Drawing;
+﻿using System;
+using System.Collections.Generic;
+using System.Drawing;
 using System.Linq;
 using System.Net.Sockets;
 using System.Threading.Tasks;
@@ -53,25 +55,26 @@ namespace MagicHomeLEDControl
             return true;
         }
 
-        private async Task<byte[]> Receive(byte[] input)
+        private async Task<byte[]> Receive(byte[] input, byte length = 14)
         {
             if (input == null)
                 return null;
             byte[] data = Utils.AddCheckSum(input);
+            byte[] response;
 
-            using (TcpClient client = new TcpClient(ipaddr, port))
+            using (TcpClient client = new TcpClient(ipaddr, port) { ReceiveTimeout = 1000 })
             {
                 using (NetworkStream stream = client.GetStream())
                 {
                     await stream.WriteAsync(data, 0, data.Length);
-                    data = new byte[14];
-                    System.Threading.Thread.Sleep(1000);
-                    client.Client.ReceiveTimeout = 1000;
-                    await stream.ReadAsync(data, 0, data.Length);
+                    response = new byte[length];
+                    int read = 0;
+                    while (read < length)
+                        read += await stream.ReadAsync(response, read, response.Length - read);
 
                 }
             }
-            return data;
+            return response;
         }
 
         public async Task SetRGB(Color c)
@@ -188,6 +191,102 @@ namespace MagicHomeLEDControl
             byte[] data = new byte[] { 0x61, (byte)pattern, delay, 0x0f };
             await Send(data);
         }
+
+        public async Task SetClockToSystem()
+        {
+            await SetClock(DateTime.Now);
+        }
+
+        public async Task SetClock(DateTime dt)
+        {
+            List<int> data = new List<int> { 0x10, 0x14 };
+            data.Add(dt.Year - 2000);
+            data.Add(dt.Month);
+            data.Add(dt.Day);
+            data.Add(dt.Hour);
+            data.Add(dt.Minute);
+            data.Add(dt.Second);
+            data.Add((dt.DayOfWeek == 0) ? 7 : (int)dt.DayOfWeek);
+            data.Add(0x00);
+            data.Add(0x0f);
+            await Send(data.Select(x => (byte)x).ToArray());
+        }
+
+        public async Task<DateTime> GetClock()
+        {
+            byte[] data = new byte[] { 0x11, 0x1a, 0x1b, 0x0f };
+            byte[] rx = await Receive(data, 12);
+
+            int year = rx[3] + 2000;
+            int month = rx[4];
+            int day = rx[5];
+            int hour = rx[6];
+            int minute = rx[7];
+            int second = rx[8];
+
+            DateTime dt = new DateTime(year, month, day, hour, minute, second);
+            return dt;
+        }
+
+        public async Task<List<Timer>> GetTimers()
+        {
+            byte[] data = new byte[] { 0x22, 0x2a, 0x2b, 0x0f };
+            byte[] rx = await Receive(data, 88);
+
+
+            // utils.dump_data(rx)
+            int start = 2;
+            List<Timer> timer_list = new List<Timer>();
+            //pass in the 14-byte timer structs
+            for (int i = 0; i < 6; i++)
+            {
+                byte[] timer_bytes = new byte[14];
+                Array.Copy(rx, start, timer_bytes, 0, 14);
+                Timer timer = new Timer(timer_bytes);
+                timer_list.Add(timer);
+                start += 14;
+            }
+
+            return timer_list;
+        }
+
+        public async Task SendTimers(List<Timer> timer_list)
+        {
+            // remove inactive or expired timers from list
+            foreach (var t in timer_list)
+                if (!t.isActive() || t.isExpired())
+                    timer_list.Remove(t);
+
+
+            // truncate if more than 6
+            if (timer_list.Count > 6)
+            {
+                Console.WriteLine("too many timers, truncating list");
+                timer_list = timer_list.GetRange(0, 6);
+            }
+
+            // pad list to 6 with inactive timers
+            if (timer_list.Count != 6)
+                for (int i = 0; i < 6 - timer_list.Count; i++)
+
+                    timer_list.Add(new Timer());
+
+
+
+            byte msg_start = 0x21;
+            byte[] msg_end = new byte[] { 0x00, 0xf0 };
+            List<byte> msg = new List<byte>();
+
+            // build message
+            msg.Add(msg_start);
+            foreach (var t in timer_list)
+                msg.AddRange(t.toBytes());
+
+            msg.AddRange(msg_end);
+
+            await Send(msg.ToArray());
+        }
+
 
     }
 }

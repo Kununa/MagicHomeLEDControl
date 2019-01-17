@@ -50,6 +50,7 @@
     <Compile Include="MagicHomeLED.cs" />
     <Compile Include="PresetPattern.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Timer.cs" />
     <Compile Include="Utils.cs" />
   </ItemGroup>
   <ItemGroup>
