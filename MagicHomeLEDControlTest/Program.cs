@@ -17,7 +17,7 @@ namespace MagicHomeLEDControlTest
         {
             MagicHomeLED led = new MagicHomeLED("192.168.178.91", MagicHomeLED.Type.LD382v2);
             led.SetOn().Wait();
-            led.SetRGB(255, 0, 0).Wait();
+            led.SetPresetPattern(PresetPattern.Presets.blueBreathing,88).Wait();
             led.SetOff().Wait();
         }
     }
