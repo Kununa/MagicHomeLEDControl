@@ -1,10 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Drawing;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Net.Sockets;
-using System.Drawing;
+using System.Threading.Tasks;
 
 namespace MagicHomeLEDControl
 {
@@ -39,56 +36,55 @@ namespace MagicHomeLEDControl
             blue = 0;
             ww = 0;
             this.type = type;
-            getState();
+            GetState().Wait();
         }
 
-        private bool send(byte[] input)
+        private async Task<bool> Send(byte[] input)
         {
             if (input == null)
                 return false;
-            byte[] data = Utils.addCheckSum(input);
+            byte[] data = Utils.AddCheckSum(input);
 
-            TcpClient client = new TcpClient(ipaddr, port);
-            NetworkStream stream = client.GetStream();
-            stream.Write(data, 0, data.Length);
+            using (NetworkStream stream = new TcpClient(ipaddr, port).GetStream())
+            {
+                await stream.WriteAsync(data, 0, data.Length);
+            }
 
-            stream.Close();
-            client.Close();
             return true;
         }
 
-        private byte[] receive(byte[] input)
+        private async Task<byte[]> Receive(byte[] input)
         {
             if (input == null)
                 return null;
-            byte[] data = Utils.addCheckSum(input);
+            byte[] data = Utils.AddCheckSum(input);
 
             using (TcpClient client = new TcpClient(ipaddr, port))
             {
                 using (NetworkStream stream = client.GetStream())
                 {
-                    stream.Write(data, 0, data.Length);
+                    await stream.WriteAsync(data, 0, data.Length);
                     data = new byte[14];
                     System.Threading.Thread.Sleep(1000);
                     client.Client.ReceiveTimeout = 1000;
-                    stream.Read(data, 0, data.Length);
+                    await stream.ReadAsync(data, 0, data.Length);
 
                 }
             }
             return data;
         }
 
-        public void setRGB(Color c)
+        public async Task SetRGB(Color c)
         {
-            setRGB(c.R, c.G, c.B);
+            await SetRGB(c.R, c.G, c.B);
         }
 
-        public void setRGB(byte r, byte g, byte b)
+        public async Task SetRGB(byte r, byte g, byte b)
         {
             byte[] data = null;
             if (type == Type.LD382v2)
                 data = new byte[] { 0x31, r, g, b, 0x00, 0x00, 0x0f };
-            if (send(data))
+            if (await Send(data))
             {
                 red = r;
                 green = g;
@@ -96,15 +92,15 @@ namespace MagicHomeLEDControl
                 ww = 0;
             }
             if (!isOn)
-                setOn();
+                await SetOn();
         }
 
-        public void setWW(byte ww)
+        public async Task SetWW(byte ww)
         {
             byte[] data = null;
             if (type == Type.LD382v2)
                 data = new byte[] { 0x31, 0x00, 0x00, 0x00, ww, 0x00, 0x0f };
-            if (send(data))
+            if (await Send(data))
             {
                 this.ww = ww;
                 red = 0;
@@ -112,7 +108,7 @@ namespace MagicHomeLEDControl
                 blue = 0;
             }
             if (!isOn)
-                setOn();
+                await SetOn();
         }
 
         public byte getWW()
@@ -120,30 +116,30 @@ namespace MagicHomeLEDControl
             return ww;
         }
 
-        public void setOn()
+        public async Task SetOn()
         {
             byte[] data = null;
             if (type == Type.LD382v2)
                 data = new byte[] { 0x71, 0x23, 0x0f };
-            if (send(data))
+            if (await Send(data))
                 isOn = true;
         }
 
-        public void setOff()
+        public async Task SetOff()
         {
             byte[] data = null;
             if (type == Type.LD382v2)
                 data = new byte[] { 0x71, 0x24, 0x0f };
-            if (send(data))
+            if (await Send(data))
                 isOn = false;
         }
 
-        public void getState()
+        public async Task GetState()
         {
             byte[] data = null;
             if (type == Type.LD382v2)
                 data = new byte[] { 0x81, 0x8a, 0x8b };
-            byte[] ans = receive(data);
+            byte[] ans = await Receive(data);
             if (ans == null || ans[0] != 0x81)
                 return;
             if (ans[2] == 0x23)

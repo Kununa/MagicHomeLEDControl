@@ -10,7 +10,7 @@ namespace MagicHomeLEDControl
     class Utils
     {
 
-        public static byte[] addCheckSum(byte[] input)
+        public static byte[] AddCheckSum(byte[] input)
         {
             byte sum = 0;
             foreach (byte b in input)

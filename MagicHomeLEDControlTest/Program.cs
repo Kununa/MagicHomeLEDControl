@@ -15,7 +15,10 @@ namespace MagicHomeLEDControlTest
         [STAThread]
         static void Main()
         {
-            MagicHomeLED led = new MagicHomeLED("192.168.178.108", MagicHomeLED.Type.LD382v2);
+            MagicHomeLED led = new MagicHomeLED("192.168.178.91", MagicHomeLED.Type.LD382v2);
+            led.SetOn().Wait();
+            led.SetRGB(255, 0, 0).Wait();
+            led.SetOff().Wait();
         }
     }
 }
